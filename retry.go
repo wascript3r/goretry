@@ -1,4 +1,4 @@
-package repeat
+package goretry
 
 import (
 	"context"
@@ -8,14 +8,14 @@ import (
 type RetryFunc func() error
 
 func Do(ctx context.Context, f RetryFunc, intv time.Duration, now bool) {
-	go repeat(ctx, f, intv, now)
+	go retry(ctx, f, intv, now)
 }
 
 func DoBlock(ctx context.Context, f RetryFunc, intv time.Duration, now bool) {
-	repeat(ctx, f, intv, now)
+	retry(ctx, f, intv, now)
 }
 
-func repeat(ctx context.Context, f RetryFunc, intv time.Duration, now bool) {
+func retry(ctx context.Context, f RetryFunc, intv time.Duration, now bool) {
 	if ctx.Err() == context.Canceled {
 		return
 	}
