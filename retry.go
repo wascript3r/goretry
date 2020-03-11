@@ -24,6 +24,13 @@ func (s *StopError) Error() string {
 	return fmt.Sprintf("%v: %v", ErrStopped, s.Err)
 }
 
+func UnwrapStopErr(err error) (error, bool) {
+	if e, ok := err.(*StopError); ok {
+		return e.Err, true
+	}
+	return err, false
+}
+
 type RetryFunc func() error
 
 func Do(ctx context.Context, f RetryFunc, intv time.Duration, attempts int, now bool) {
