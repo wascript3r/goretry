@@ -3,77 +3,68 @@ package goretry
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 )
 
 var (
-	ErrInterrupted      = errors.New("retry function was interrupted by context")
-	ErrAttemptsExceeded = errors.New("attempts limit is exceeded")
-	ErrStopped          = errors.New("retry function was stopped")
+	ErrInterrupted = NewError(
+		ExitState,
+		errors.New("retry function was interrupted by context"),
+	)
+	ErrAttemptsExceeded = NewError(
+		StopState,
+		errors.New("attempts limit is exceeded"),
+	)
 )
 
-type StopError struct {
-	Err error
-}
-
-func (s *StopError) Error() string {
-	if s.Err == nil {
-		return ErrStopped.Error()
-	}
-	return fmt.Sprintf("%v: %v", ErrStopped, s.Err)
-}
-
-func UnwrapStopErr(err error) (error, bool) {
-	if e, ok := err.(*StopError); ok {
-		return e.Err, true
-	}
-	return err, false
-}
-
-type RetryFunc func() error
+type RetryFunc func() *Error
 
 func Do(ctx context.Context, f RetryFunc, intv time.Duration, attempts int, now bool) {
 	go retry(ctx, f, intv, attempts, now)
 }
 
-func DoBlock(ctx context.Context, f RetryFunc, intv time.Duration, attempts int, now bool) error {
+func DoBlock(ctx context.Context, f RetryFunc, intv time.Duration, attempts int, now bool) *Error {
 	return retry(ctx, f, intv, attempts, now)
 }
 
-func StopErr(err error) error {
-	return &StopError{err}
-}
-
-func ctxErr(ctx context.Context) error {
+func ctxErr(ctx context.Context) *Error {
 	if ctx.Err() != nil {
 		return ErrInterrupted
 	}
 	return nil
 }
 
-func retry(ctx context.Context, f RetryFunc, intv time.Duration, attempts int, now bool) error {
+func retry(ctx context.Context, f RetryFunc, intv time.Duration, attempts int, now bool) *Error {
 	if e := ctxErr(ctx); e != nil {
 		return e
 	}
 
-	callf := func() (error, bool) {
+	callf := func() *Error {
 		err := f()
 		if err == nil {
-			return ctxErr(ctx), true
+			return ctxErr(ctx)
 		}
-		if _, ok := err.(*StopError); ok {
-			return err, true
+
+		if !IsValidState(err.State) {
+			err.State = InvalidState
+			return err
+		}
+
+		if err.State != ContinueState {
+			return err
 		}
 		if e := ctxErr(ctx); e != nil {
-			return e, true
+			return e
 		}
-		return err, false
+		return err
 	}
 
 	if now {
-		err, exit := callf()
-		if exit {
+		err := callf()
+		if err == nil {
+			return nil
+		}
+		if err.State != ContinueState {
 			return err
 		}
 	}
@@ -86,8 +77,11 @@ func retry(ctx context.Context, f RetryFunc, intv time.Duration, attempts int, n
 			return ErrInterrupted
 
 		case <-t.C:
-			err, exit := callf()
-			if exit {
+			err := callf()
+			if err == nil {
+				return nil
+			}
+			if err.State != ContinueState {
 				return err
 			}
 			t.Reset(intv)
