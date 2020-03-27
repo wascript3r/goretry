@@ -19,12 +19,12 @@ var (
 
 type RetryFunc func() *Error
 
-func Do(ctx context.Context, f RetryFunc, intv time.Duration, attempts int, now bool) {
-	go retry(ctx, f, intv, attempts, now)
+func Do(ctx context.Context, f RetryFunc, intv time.Duration, maxAttempts int, now bool) {
+	go retry(ctx, f, intv, maxAttempts, now)
 }
 
-func DoBlock(ctx context.Context, f RetryFunc, intv time.Duration, attempts int, now bool) *Error {
-	return retry(ctx, f, intv, attempts, now)
+func DoBlock(ctx context.Context, f RetryFunc, intv time.Duration, maxAttempts int, now bool) *Error {
+	return retry(ctx, f, intv, maxAttempts, now)
 }
 
 func ctxErr(ctx context.Context) *Error {
@@ -34,7 +34,7 @@ func ctxErr(ctx context.Context) *Error {
 	return nil
 }
 
-func retry(ctx context.Context, f RetryFunc, intv time.Duration, attempts int, now bool) *Error {
+func retry(ctx context.Context, f RetryFunc, intv time.Duration, maxAttempts int, now bool) *Error {
 	if e := ctxErr(ctx); e != nil {
 		return e
 	}
@@ -70,7 +70,7 @@ func retry(ctx context.Context, f RetryFunc, intv time.Duration, attempts int, n
 	}
 	t := time.NewTimer(intv)
 
-	for i := attempts; i > 0; i-- {
+	for i := maxAttempts; i > 0; i-- {
 		select {
 		case <-ctx.Done():
 			t.Stop()
