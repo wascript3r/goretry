@@ -30,3 +30,15 @@ func NewError(state State, err error) *Error {
 func Continue(err error) *Error {
 	return NewError(ContinueState, err)
 }
+
+func Info(err error) *Error {
+	return NewError(InformationalState, err)
+}
+
+func Stop(err error) *Error {
+	return NewError(StopState, err)
+}
+
+func Exit(err error) *Error {
+	return NewError(ExitState, err)
+}
