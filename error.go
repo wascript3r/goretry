@@ -1,5 +1,7 @@
 package goretry
 
+import "fmt"
+
 type State uint32
 
 const (
@@ -18,6 +20,21 @@ func IsValidState(state State) bool {
 	return false
 }
 
+func (s State) String() string {
+	switch s {
+	case ContinueState:
+		return "Continue"
+	case InformationalState:
+		return "Informational"
+	case StopState:
+		return "Stop"
+	case ExitState:
+		return "Exit"
+	default:
+		return "Invalid"
+	}
+}
+
 type Error struct {
 	State    State
 	Original error
@@ -25,6 +42,10 @@ type Error struct {
 
 func NewError(state State, err error) *Error {
 	return &Error{state, err}
+}
+
+func (e *Error) String() string {
+	return fmt.Sprintf("%s (state: %s)", e.Original, e.State)
 }
 
 func Continue(err error) *Error {
